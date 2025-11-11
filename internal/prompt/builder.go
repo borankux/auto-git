@@ -16,8 +16,8 @@ Guidelines:
 - Use imperative mood ("add feature" not "added feature")
 - Be specific and descriptive
 - If multiple types apply, choose the most significant one
-
-Analyze the changes and generate a single-line commit message.`
+- Output exactly one line containing only the commit message (no explanations, code fences, or prefixes such as "Commit message:")
+`
 }
 
 func BuildUserPrompt(changes *git.Changes, diffContent string) string {
@@ -136,4 +136,3 @@ func SuggestCommitType(changes *git.Changes) string {
 	}
 	return "chore"
 }
-
