@@ -1,0 +1,29 @@
+bin/
+tmp/
+dist/
+build/
+
+# Go workspaces
+go.work
+go.work.sum
+
+# Go build/test artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.pprof
+*.cover
+coverage/
+cover.out
+coverage.out
+
+# Logs and editor junk
+*.log
+*.swp
+*.swo
+.DS_Store
