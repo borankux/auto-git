@@ -27,3 +27,4 @@ coverage.out
 *.swp
 *.swo
 .DS_Store
+./bin

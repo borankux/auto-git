@@ -31,7 +31,14 @@ func BuildUserPrompt(changes *git.Changes, diffContent string) string {
 	parts = append(parts, "=== DIFF CONTENT ===")
 	parts = append(parts, diffContent)
 	parts = append(parts, "")
-	parts = append(parts, "Generate a commit message following the conventional commit format:")
+	parts = append(parts, "Requirements:")
+	parts = append(parts, "- Respond with exactly one line containing only the commit message.")
+	parts = append(parts, "- Use the format <type>(<optional scope>): <subject> or <type>: <subject> if no scope.")
+	parts = append(parts, "- Keep it under 72 characters and write in the imperative mood.")
+	parts = append(parts, "- Do NOT include explanations, bullet lists, code fences, or backticks.")
+	parts = append(parts, "- If unsure, default the type to chore.")
+	parts = append(parts, "")
+	parts = append(parts, "Return only the commit message text:")
 
 	return strings.Join(parts, "\n")
 }
