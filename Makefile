@@ -1,4 +1,4 @@
-.PHONY: build install clean
+.PHONY: build install clean reinstall
 
 BINARY_NAME=auto-git
 GO_CMD=go
@@ -37,6 +37,9 @@ clean:
 	$(GO_CLEAN)
 	rm -f bin/$(BINARY_NAME)
 
+reinstall: clean build install
+	@echo "Cleaned, built, and installed $(BINARY_NAME)."
+
 test:
 	@echo "Running tests..."
 	$(GO_TEST) ./...
@@ -44,4 +47,3 @@ test:
 deps:
 	@echo "Downloading dependencies..."
 	$(GO_GET) -d ./...
-

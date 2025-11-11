@@ -38,6 +38,7 @@ var setModelCmd = &cobra.Command{
 		}
 
 		client := ollama.NewClient("")
+		logAuthStatus(client)
 
 		spinner := ui.NewSpinner("Connecting to Ollama server...")
 		if err := client.CheckConnection(); err != nil {
@@ -147,6 +148,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	client := ollama.NewClient("")
+	logAuthStatus(client)
 
 	spinner := ui.NewSpinner("Connecting to Ollama server...")
 	if err := client.CheckConnection(); err != nil {
@@ -239,4 +241,21 @@ func run(cmd *cobra.Command, args []string) {
 	spinner.Stop()
 
 	fmt.Println("Successfully committed and pushed!")
+}
+
+func logAuthStatus(client *ollama.Client) {
+	if client.APIKey == "" {
+		fmt.Println("Connecting to Ollama without OLLAMA_API_KEY (requests are unauthenticated).")
+		return
+	}
+
+	fmt.Printf("Using OLLAMA_API_KEY for authentication (%s)\n", maskAPIKey(client.APIKey))
+}
+
+func maskAPIKey(key string) string {
+	const visible = 4
+	if len(key) <= visible {
+		return key
+	}
+	return strings.Repeat("*", len(key)-visible) + key[len(key)-visible:]
 }

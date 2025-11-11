@@ -14,6 +14,7 @@ Auto-git is a CLI assistant that scans your repository, summarizes pending chang
 - Git installed and a repository with uncommitted changes.
 - Access to an Ollama server that exposes the HTTP API. By default the client targets `http://219.147.100.43:11434`; change `DefaultBaseURL` in `internal/ollama/client.go` or pass a custom value into `ollama.NewClient` if you fork the project.
 - Permission to push to the current repo’s default remote.
+- (Optional) If your Ollama endpoint requires auth, export `OLLAMA_API_KEY`—requests will include it as a `Bearer` token automatically.
 
 ## Installation
 Clone the repo and either build locally or install to your Go bin directory:
@@ -46,6 +47,10 @@ Commands:
 - `auto-git config set-model <model-name>` – update the default Ollama model. The command will fetch the model list from the server and let you pick interactively if the given name is missing.
 
 If the config file does not exist yet, auto-git falls back to `llama3.2` and will prompt you to pick a model the first time you run the tool.
+
+### Authentication
+- Set `OLLAMA_API_KEY` in your environment to have every Ollama request send `Authorization: Bearer <key>`.
+- Leave it unset for local/self-hosted instances that do not require credentials.
 
 ## Usage
 Run `auto-git` from inside any git repo with changes:

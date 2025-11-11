@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
 const (
 	DefaultBaseURL = "http://219.147.100.43:11434"
 	DefaultTimeout = 60 * time.Second
+	EnvAPIKey      = "OLLAMA_API_KEY"
 )
 
 type Client struct {
 	BaseURL string
 	Client  *http.Client
+	APIKey  string
 }
 
 type Model struct {
@@ -41,16 +45,16 @@ type ChatRequest struct {
 }
 
 type ChatResponse struct {
-	Model              string `json:"model"`
-	CreatedAt          string `json:"created_at"`
+	Model              string      `json:"model"`
+	CreatedAt          string      `json:"created_at"`
 	Message            ChatMessage `json:"message"`
-	Done               bool   `json:"done"`
-	TotalDuration      int64  `json:"total_duration"`
-	LoadDuration       int64  `json:"load_duration"`
-	PromptEvalCount    int    `json:"prompt_eval_count"`
-	PromptEvalDuration int64  `json:"prompt_eval_duration"`
-	EvalCount          int    `json:"eval_count"`
-	EvalDuration       int64  `json:"eval_duration"`
+	Done               bool        `json:"done"`
+	TotalDuration      int64       `json:"total_duration"`
+	LoadDuration       int64       `json:"load_duration"`
+	PromptEvalCount    int         `json:"prompt_eval_count"`
+	PromptEvalDuration int64       `json:"prompt_eval_duration"`
+	EvalCount          int         `json:"eval_count"`
+	EvalDuration       int64       `json:"eval_duration"`
 }
 
 func NewClient(baseURL string) *Client {
@@ -58,21 +62,25 @@ func NewClient(baseURL string) *Client {
 		baseURL = DefaultBaseURL
 	}
 
+	apiKey := strings.TrimSpace(os.Getenv(EnvAPIKey))
+
 	return &Client{
 		BaseURL: baseURL,
 		Client: &http.Client{
 			Timeout: DefaultTimeout,
 		},
+		APIKey: apiKey,
 	}
 }
 
 func (c *Client) ListModels() ([]Model, error) {
 	url := fmt.Sprintf("%s/api/tags", c.BaseURL)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	c.attachAuth(req)
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -124,6 +132,7 @@ func (c *Client) GenerateCommitMessage(model string, systemPrompt, userPrompt st
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	c.attachAuth(req)
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -150,11 +159,12 @@ func (c *Client) GenerateCommitMessage(model string, systemPrompt, userPrompt st
 
 func (c *Client) CheckConnection() error {
 	url := fmt.Sprintf("%s/api/tags", c.BaseURL)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+	c.attachAuth(req)
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -169,3 +179,9 @@ func (c *Client) CheckConnection() error {
 	return nil
 }
 
+func (c *Client) attachAuth(req *http.Request) {
+	if c.APIKey == "" {
+		return
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.APIKey))
+}
