@@ -44,26 +44,49 @@ func IsGitRepo(dir string) (bool, error) {
 	return info.IsDir(), nil
 }
 
+// FindGitRoot traverses up directories from startDir to find the .git folder
+// Returns the git root directory path and an error if not found
+func FindGitRoot(startDir string) (string, error) {
+	dir, err := filepath.Abs(startDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	for {
+		isRepo, err := IsGitRepo(dir)
+		if err != nil {
+			return "", fmt.Errorf("failed to check git repo: %w", err)
+		}
+		if isRepo {
+			return dir, nil
+		}
+
+		parent := filepath.Dir(dir)
+		// If we've reached the root directory (parent == dir), stop searching
+		if parent == dir {
+			return "", fmt.Errorf("not a git repository (searched up to %s)", dir)
+		}
+		dir = parent
+	}
+}
+
 func GetChanges() (*Changes, error) {
 	workDir, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	isRepo, err := IsGitRepo(workDir)
+	gitRoot, err := FindGitRoot(workDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check git repo: %w", err)
-	}
-	if !isRepo {
-		return nil, fmt.Errorf("not a git repository")
+		return nil, err
 	}
 
-	staged, err := getStagedChanges()
+	staged, err := getStagedChanges(gitRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get staged changes: %w", err)
 	}
 
-	unstaged, err := getUnstagedChanges()
+	unstaged, err := getUnstagedChanges(gitRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unstaged changes: %w", err)
 	}
@@ -81,8 +104,9 @@ func GetChanges() (*Changes, error) {
 	}, nil
 }
 
-func getStagedChanges() ([]FileChange, error) {
+func getStagedChanges(gitRoot string) ([]FileChange, error) {
 	cmd := exec.Command("git", "diff", "--cached", "--numstat")
+	cmd.Dir = gitRoot
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 0 {
@@ -94,8 +118,9 @@ func getStagedChanges() ([]FileChange, error) {
 	return parseDiffOutput(string(output), true)
 }
 
-func getUnstagedChanges() ([]FileChange, error) {
+func getUnstagedChanges(gitRoot string) ([]FileChange, error) {
 	cmd := exec.Command("git", "diff", "--numstat")
+	cmd.Dir = gitRoot
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 0 {
@@ -186,15 +211,27 @@ func buildSummary(staged, unstaged []FileChange) string {
 }
 
 func GetDiffContent() (string, error) {
+	workDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	gitRoot, err := FindGitRoot(workDir)
+	if err != nil {
+		return "", err
+	}
+
 	var stagedDiff, unstagedDiff string
 
 	cmd := exec.Command("git", "diff", "--cached")
+	cmd.Dir = gitRoot
 	output, err := cmd.Output()
 	if err == nil {
 		stagedDiff = string(output)
 	}
 
 	cmd = exec.Command("git", "diff")
+	cmd.Dir = gitRoot
 	output, err = cmd.Output()
 	if err == nil {
 		unstagedDiff = string(output)

@@ -207,7 +207,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	commitMessage = prompt.ExtractCommitMessage(commitMessage)
 
-	if commitMessage == "" {
+	if strings.TrimSpace(commitMessage) == "" {
 		fmt.Println("Generated commit message is empty. Please enter a commit message manually:")
 		manualMessage, err := ui.EditCommitMessage("")
 		if err != nil {
@@ -215,21 +215,14 @@ func run(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		commitMessage = manualMessage
-	} else {
-		fmt.Printf("\nGenerated commit message:\n%s\n\n", commitMessage)
-		fmt.Println("Edit the message if needed (or press Enter to use as-is):")
-
-		editedMessage, err := ui.EditCommitMessage(commitMessage)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if strings.TrimSpace(commitMessage) == "" {
+			fmt.Fprintf(os.Stderr, "Commit message cannot be empty\n")
 			os.Exit(1)
 		}
-		commitMessage = editedMessage
-	}
-
-	if strings.TrimSpace(commitMessage) == "" {
-		fmt.Fprintf(os.Stderr, "Commit message cannot be empty\n")
-		os.Exit(1)
+	} else {
+		// Server responded with non-empty value - automate, don't pause
+		fmt.Printf("\nGenerated commit message:\n%s\n\n", commitMessage)
+		fmt.Println("Proceeding with commit and push...")
 	}
 
 	spinner = ui.NewSpinner(fmt.Sprintf("Committing and pushing: %s", commitMessage))
