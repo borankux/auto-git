@@ -225,15 +225,20 @@ func run(cmd *cobra.Command, args []string) {
 		fmt.Println("Proceeding with commit and push...")
 	}
 
-	spinner = ui.NewSpinner(fmt.Sprintf("Committing and pushing: %s", commitMessage))
-	if err := git.StageAndCommitAndPush(commitMessage); err != nil {
+	spinner = ui.NewSpinner(fmt.Sprintf("Recording git changes: %s", commitMessage))
+	pushed, err := git.StageAndCommitAndPush(commitMessage)
+	if err != nil {
 		spinner.Stop()
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 	spinner.Stop()
 
-	fmt.Println("Successfully committed and pushed!")
+	if pushed {
+		fmt.Println("Successfully committed and pushed!")
+	} else {
+		fmt.Println("Committed locally; remote 'origin' not configured, skipping push.")
+	}
 }
 
 func logAuthStatus(client *ollama.Client) {
