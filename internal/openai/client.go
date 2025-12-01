@@ -1,4 +1,4 @@
-package ollama
+package openai
 
 import (
 	"bytes"
@@ -14,19 +14,17 @@ import (
 )
 
 const (
-	DefaultBaseURL = "http://localhost:11434"
-	DefaultTimeout = 60 * time.Second
-	EnvAPIKey      = "OLLAMA_API_KEY"
+	DefaultOpenAIBaseURL    = "https://api.openai.com/v1"
+	DefaultSiliconFlowURL   = "https://api.siliconflow.cn/v1"
+	DefaultTimeout          = 60 * time.Second
+	EnvOpenAIAPIKey         = "OPENAI_API_KEY"
+	EnvSiliconFlowAPIKey    = "SILICON_KEY"
 )
 
 type Client struct {
 	BaseURL string
 	Client  *http.Client
 	APIKey  string
-}
-
-type ModelsResponse struct {
-	Models []provider.Model `json:"models"`
 }
 
 type ChatMessage struct {
@@ -41,25 +39,49 @@ type ChatRequest struct {
 }
 
 type ChatResponse struct {
-	Model              string      `json:"model"`
-	CreatedAt          string      `json:"created_at"`
-	Message            ChatMessage `json:"message"`
-	Done               bool        `json:"done"`
-	TotalDuration      int64       `json:"total_duration"`
-	LoadDuration       int64       `json:"load_duration"`
-	PromptEvalCount    int         `json:"prompt_eval_count"`
-	PromptEvalDuration int64       `json:"prompt_eval_duration"`
-	EvalCount          int         `json:"eval_count"`
-	EvalDuration       int64       `json:"eval_duration"`
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
+	Choices []struct {
+		Index   int `json:"index"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
-func NewClient(baseURL, apiKey string) *Client {
+type ModelsResponse struct {
+	Data []struct {
+		ID      string `json:"id"`
+		Object  string `json:"object"`
+		Created int64  `json:"created"`
+		OwnedBy string `json:"owned_by"`
+	} `json:"data"`
+}
+
+func NewClient(baseURL, apiKey string, isSiliconFlow bool) *Client {
 	if baseURL == "" {
-		baseURL = DefaultBaseURL
+		if isSiliconFlow {
+			baseURL = DefaultSiliconFlowURL
+		} else {
+			baseURL = DefaultOpenAIBaseURL
+		}
 	}
 
 	if apiKey == "" {
-		apiKey = strings.TrimSpace(getEnv(EnvAPIKey))
+		if isSiliconFlow {
+			apiKey = strings.TrimSpace(getEnv(EnvSiliconFlowAPIKey))
+		} else {
+			apiKey = strings.TrimSpace(getEnv(EnvOpenAIAPIKey))
+		}
 	}
 
 	return &Client{
@@ -72,7 +94,7 @@ func NewClient(baseURL, apiKey string) *Client {
 }
 
 func (c *Client) ListModels() ([]provider.Model, error) {
-	url := fmt.Sprintf("%s/api/tags", c.BaseURL)
+	url := fmt.Sprintf("%s/models", c.BaseURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -96,11 +118,18 @@ func (c *Client) ListModels() ([]provider.Model, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return modelsResp.Models, nil
+	models := make([]provider.Model, 0, len(modelsResp.Data))
+	for _, m := range modelsResp.Data {
+		models = append(models, provider.Model{
+			Name: m.ID,
+		})
+	}
+
+	return models, nil
 }
 
 func (c *Client) GenerateCommitMessage(model string, systemPrompt, userPrompt string) (string, error) {
-	url := fmt.Sprintf("%s/api/chat", c.BaseURL)
+	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
 
 	messages := []ChatMessage{
 		{
@@ -148,15 +177,16 @@ func (c *Client) GenerateCommitMessage(model string, systemPrompt, userPrompt st
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if chatResp.Message.Content == "" {
+	if len(chatResp.Choices) == 0 || chatResp.Choices[0].Message.Content == "" {
 		return "", fmt.Errorf("empty response from model")
 	}
 
-	return chatResp.Message.Content, nil
+	return chatResp.Choices[0].Message.Content, nil
 }
 
 func (c *Client) CheckConnection() error {
-	url := fmt.Sprintf("%s/api/tags", c.BaseURL)
+	// Try to list models as a connection check
+	url := fmt.Sprintf("%s/models", c.BaseURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -166,12 +196,13 @@ func (c *Client) CheckConnection() error {
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to connect to Ollama server: %w", err)
+		return fmt.Errorf("failed to connect to API server: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -188,3 +219,4 @@ func (c *Client) attachAuth(req *http.Request) {
 func getEnv(key string) string {
 	return os.Getenv(key)
 }
+

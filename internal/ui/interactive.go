@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"auto-git/internal/ollama"
+	"auto-git/internal/provider"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -73,19 +73,25 @@ func (m modelSelectionModel) View() string {
 	return "\n" + m.list.View()
 }
 
-func SelectModel(models []ollama.Model, defaultModel string) (string, error) {
+func SelectModel(models []provider.Model, defaultModel string) (string, error) {
 	items := make([]list.Item, len(models))
 	selectedIndex := 0
 
 	for i, m := range models {
-		items[i] = item{title: m.Name, desc: fmt.Sprintf("Size: %d bytes", m.Size)}
+		desc := ""
+		if m.Size > 0 {
+			desc = fmt.Sprintf("Size: %d bytes", m.Size)
+		} else if m.ModifiedAt != "" {
+			desc = fmt.Sprintf("Modified: %s", m.ModifiedAt)
+		}
+		items[i] = item{title: m.Name, desc: desc}
 		if m.Name == defaultModel {
 			selectedIndex = i
 		}
 	}
 
 	l := list.New(items, itemDelegate{}, 80, 20)
-	l.Title = "Select Ollama Model"
+	l.Title = "Select Model"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.Styles.Title = titleStyle

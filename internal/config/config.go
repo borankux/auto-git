@@ -9,13 +9,16 @@ import (
 )
 
 const (
-	DefaultModel = "llama3.2"
-	ConfigDir    = ".config/auto-git"
-	ConfigFile   = "config.yaml"
+	DefaultModel    = "llama3.2"
+	DefaultProvider = "siliconflow"
+	ConfigDir       = ".config/auto-git"
+	ConfigFile      = "config.yaml"
 )
 
 type Config struct {
-	Model string `yaml:"model"`
+	Provider string `yaml:"provider"`
+	Endpoint string `yaml:"endpoint"`
+	Model    string `yaml:"model"`
 }
 
 func GetConfigPath() (string, error) {
@@ -41,7 +44,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return &Config{Model: DefaultModel}, nil
+		return &Config{
+			Provider: DefaultProvider,
+			Model:    DefaultModel,
+		}, nil
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -54,6 +60,10 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
+	// Set defaults for backward compatibility
+	if config.Provider == "" {
+		config.Provider = DefaultProvider
+	}
 	if config.Model == "" {
 		config.Model = DefaultModel
 	}
@@ -95,6 +105,26 @@ func SetModel(model string) error {
 	}
 
 	config.Model = model
+	return SaveConfig(config)
+}
+
+func SetProvider(provider string) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	config.Provider = provider
+	return SaveConfig(config)
+}
+
+func SetEndpoint(endpoint string) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	config.Endpoint = endpoint
 	return SaveConfig(config)
 }
 
